@@ -13,6 +13,10 @@
 // @downloadURL  https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // ==/UserScript==
 
+// DL処理開始後にウィンドウ閉じるまでの時間(ミリ秒)
+// スクリプトからDLが開始できているか知ることはできないのでデフォルトでは10秒と長めに設定してある
+const WINDOW_CLOSE_TIMEOUT = 10000;
+
 (function() {
   'use strict';
 
@@ -23,7 +27,7 @@
   } else if (window.location.href.startsWith("https://drive.usercontent.google.com/download?id=")) {
     // Googleドライブの大容量ファイルDL時の警告ページの場合
     googleDriveWarnPage();
-  } else if (window.location.href.startsWith("https://www.dropbox.com/scl/fi/" && !window.location.search.includes("dl=1"))) {
+  } else if (window.location.href.startsWith("https://www.dropbox.com/scl/fi/") && !window.location.search.includes("dl=1")) {
     // Dropboxのファイル共有ページで自動でDL開始しない("dl=1"パラメータがセットされていない)場合
     dropboxFilePage();
   } else if (window.location.href.startsWith("https://www.mediafire.com/file/")) {
@@ -88,10 +92,29 @@ function mediaFireFilePage() {
   windowClose();
 }
 
-// 10秒後に閉じるを試行（ブラウザが許可する場合のみ閉じる）
-// 新しいタブで開くなど履歴が1つしかない状態ならスクリプトから閉じることができるはず
+// ページタイトルとfaviconを変更する関数
+function changeTitleAndFavicon(faviconUrl) {
+  // タイトル変更
+  const originalTitle = document.title;
+  document.title = "✅ " + originalTitle;
+
+  // 既存の favicon を削除
+  document.querySelectorAll("link[rel*='icon']").forEach(e => e.remove());
+
+  // 新しい link を作成
+  const link = document.createElement("link");
+  link.rel = "icon";
+  link.type = "image/png";
+  link.href = faviconUrl + "#" + Date.now(); // キャッシュ回避
+  document.head.appendChild(link);
+}
+
+// 10秒後に閉じるを試行（ブラウザが許可する場合のみ閉じる）新しいタブで開くなど履歴が1つしかない状態ならスクリプトから閉じることができるはず
+// タイトルやfaviconを処理が環境したものを示すものに変更する
 function windowClose() {
+  const greenIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAACdJREFUeNpi/M9AGmAiUT0DC4RiJMKi/4xk2TCqYaRoYKR5agUIMADPEgQfB7nemwAAAABJRU5ErkJggg==";
+  changeTitleAndFavicon(greenIcon);
   setTimeout(() => {
     try { window.close(); } catch (e) { /* 無視 */ }
-  }, 10000);
+  }, WINDOW_CLOSE_TIMEOUT);
 }
