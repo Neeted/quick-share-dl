@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.3
+// @version      1.0.4
 // @description  Googleドライブ、Dropbox、OneDrive、MediaFireのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
@@ -10,6 +10,7 @@
 // @match        https://www.mediafire.com/file/*
 // @match        https://onedrive.live.com/*
 // @grant        window.close
+// @grant        GM_openInTab
 // @updateURL    https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // @downloadURL  https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // ==/UserScript==
@@ -51,9 +52,11 @@ function googleDriveFileView() {
     const fileId = match[1];
     const downloadUrl = "https://drive.usercontent.google.com/download?id=" + fileId;
 
-    // ダウンロードページにリダイレクト
-    window.location.replace(downloadUrl);
-    endProc();
+    // ダウンロードページを新規タブで開く
+    GM_openInTab(downloadUrl);
+    if (AUTO_TAB_CLOSE) {
+      window.close();
+    }
   } else {
     console.error("ファイルIDを抽出できませんでした");
   }
@@ -76,15 +79,20 @@ function googleDriveWarnPage() {
 // Dropboxのファイル共有ページで自動でDL開始しない("dl=1"パラメータがセットされていない)場合の処理
 function dropboxFilePage() {
   console.log("Dropboxのファイル共有ページです");
+  // dl=1 にした URL を作る
+  let downloadUrl;
   if (window.location.search.includes("dl=0")) {
-    window.location.replace(window.location.href.replace("dl=0", "dl=1"));
+    downloadUrl = window.location.href.replace("dl=0", "dl=1");
   } else {
     // dlパラメータが無ければ追記
     const url = new URL(window.location.href);
     url.searchParams.set("dl", "1");
-    window.location.replace(url.toString());
+    downloadUrl = url.toString();
   }
-  endProc();
+  GM_openInTab(downloadUrl);
+  if (AUTO_TAB_CLOSE) {
+    window.close();
+  }
 }
 
 // MediaFireのファイル共有ページでの処理
@@ -92,8 +100,10 @@ function mediaFireFilePage() {
   console.log("MediaFireのファイル共有ページです");
   const btn = document.querySelector("a#downloadButton, a.input.popsok");
   if (btn && btn.href.includes("mediafire.com")) {
-    window.location.href = btn.href;
-    endProc();
+    GM_openInTab(btn.href);
+    if (AUTO_TAB_CLOSE) {
+      window.close();
+    }
   }
 }
 
