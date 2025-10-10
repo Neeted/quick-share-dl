@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.4
+// @version      1.0.5
 // @description  Googleドライブ、Dropbox、OneDrive、MediaFireのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
@@ -50,7 +50,7 @@ function googleDriveFileView() {
 
   if (match) {
     const fileId = match[1];
-    const downloadUrl = "https://drive.usercontent.google.com/download?id=" + fileId;
+    const downloadUrl = "https://drive.usercontent.google.com/download?id=" + fileId + "&export=download";
 
     // ダウンロードページを新規タブで開く
     GM_openInTab(downloadUrl);
@@ -62,15 +62,55 @@ function googleDriveFileView() {
   }
 }
 
-// Googleドライブの大容量ファイルDL時の警告ページでの処理
+// Googleドライブの大容量ファイルDL時の警告ページでの処理（form→GM_openInTab優先、なければclickフォールバック）
 function googleDriveWarnPage() {
   console.log("Googleドライブのウイルススキャン不可警告ページです");
-  const dlButton = document.getElementById("uc-download-link");
 
+  const form = document.getElementById("download-form");
+  const dlButton = document.getElementById("uc-download-link");
+  const captionEl = document.querySelector("#uc-text > p.uc-warning-caption");
+
+  // form が存在し method が GET なら URL を組み立てて新しいタブで開く
+  if (form && (form.method || '').toLowerCase() === 'get' && (form.action || '').trim() !== '') {
+    try {
+      // 基準を current location にして action を解決
+      const actionUrl = new URL(form.action, location.href);
+      const params = new URLSearchParams(actionUrl.search);
+
+      // form 内の input[name] をクエリに追加（submit/button は除外）
+      form.querySelectorAll('input[name]').forEach(inp => {
+        const name = inp.name;
+        if (!name) return;
+        const type = (inp.type || '').toLowerCase();
+        if (type === 'submit' || type === 'button') return;
+        if (inp.disabled) return; // disabled は無視
+        params.set(name, inp.value || ''); // value をセット（空文字でもセットする）
+      });
+
+      actionUrl.search = params.toString();
+      const downloadUrl = actionUrl.toString();
+
+      if (captionEl) captionEl.textContent = "自動で新しいタブを開いてダウンロードを開始します";
+      GM_openInTab(downloadUrl);
+      if (AUTO_TAB_CLOSE) {
+        window.close();
+      }
+      return; // 成功したので終了
+    } catch (e) {
+      console.warn("download-form -> URL 組み立てに失敗しました。フォールバックに移行します:", e);
+      // そのままフォールバックへ
+    }
+  }
+
+  // form がなかったり form 組み立てに失敗した場合は既存のボタンクリックを試す
   if (dlButton) {
-    document.getElementById("uc-download-link").click();
-    document.querySelector("#uc-text > p.uc-warning-caption").textContent = "自動で「このままダウンロード」をクリックしました";
-    endProc();
+    try {
+      dlButton.click();
+      if (captionEl) captionEl.textContent = "自動で「このままダウンロード」をクリックしました";
+      endProc();
+    } catch (e) {
+      console.error("ダウンロードボタンのクリックに失敗しました:", e);
+    }
   } else {
     console.error("ダウンロードボタンが見つかりませんでした");
   }
