@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.0
+// @version      1.0.1
 // @description  Googleドライブ、Dropbox、MediaFireのファイル共有ページで自動的にダウンロードを開始し新規タブなら自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
@@ -93,11 +93,7 @@ function mediaFireFilePage() {
 }
 
 // ページタイトルとfaviconを変更する関数
-function changeTitleAndFavicon(faviconUrl) {
-  // タイトル変更
-  const originalTitle = document.title;
-  document.title = "✅ " + originalTitle;
-
+function changeFavicon(faviconUrl) {
   // 既存の favicon を削除
   document.querySelectorAll("link[rel*='icon']").forEach(e => e.remove());
 
@@ -105,15 +101,24 @@ function changeTitleAndFavicon(faviconUrl) {
   const link = document.createElement("link");
   link.rel = "icon";
   link.type = "image/png";
-  link.href = faviconUrl + "#" + Date.now(); // キャッシュ回避
+  link.href = faviconUrl;
   document.head.appendChild(link);
 }
 
 // 10秒後に閉じるを試行（ブラウザが許可する場合のみ閉じる）新しいタブで開くなど履歴が1つしかない状態ならスクリプトから閉じることができるはず
-// タイトルやfaviconを処理が環境したものを示すものに変更する
+// タイトルやfaviconを処理が完了したものを示すものに変更する
 function windowClose() {
   const greenIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAACdJREFUeNpi/M9AGmAiUT0DC4RiJMKi/4xk2TCqYaRoYKR5agUIMADPEgQfB7nemwAAAABJRU5ErkJggg==";
-  changeTitleAndFavicon(greenIcon);
+  changeFavicon(greenIcon);
+
+  const originalTitle = document.title;
+  const startTime = Date.now();
+  // 500ミリ秒ごとにタイトルを更新して経過時間を表示、バックグラウンドタブの場合正確に500ミリ秒ごとに更新されないことがある
+  setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    document.title = "✅" + elapsedSec + " " + originalTitle;
+  }, 500);
+
   setTimeout(() => {
     try { window.close(); } catch (e) { /* 無視 */ }
   }, WINDOW_CLOSE_TIMEOUT);
