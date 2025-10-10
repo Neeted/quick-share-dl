@@ -155,7 +155,7 @@ function oneDrive() {
   })();
 }
 
-// ページタイトルとfaviconを変更する関数
+// faviconを変更する関数
 function changeFavicon(faviconUrl) {
   // 既存の favicon を削除
   document.querySelectorAll("link[rel*='icon']").forEach(e => e.remove());
