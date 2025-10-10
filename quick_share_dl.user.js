@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.1
-// @description  Googleドライブ、Dropbox、MediaFireのファイル共有ページで自動的にダウンロードを開始し新規タブなら自動で閉じます
+// @version      1.0.2
+// @description  Googleドライブ、Dropbox、OneDrive、MediaFireのファイル共有ページで自動的にダウンロードを開始し新規タブなら自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
 // @match        https://drive.usercontent.google.com/download*
 // @match        https://www.dropbox.com/scl/fi/*
 // @match        https://www.mediafire.com/file/*
+// @match        https://onedrive.live.com/*
 // @grant        none
 // @updateURL    https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // @downloadURL  https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
@@ -18,8 +19,6 @@
 const WINDOW_CLOSE_TIMEOUT = 10000;
 
 (function() {
-  'use strict';
-
   // サイトごとに処理を分岐
   if (window.location.href.startsWith("https://drive.google.com/file/d/")) {
     // Googleドライブのファイルビューアーページの場合
@@ -33,6 +32,9 @@ const WINDOW_CLOSE_TIMEOUT = 10000;
   } else if (window.location.href.startsWith("https://www.mediafire.com/file/")) {
     // MediaFireのファイル共有ページの場合
     mediaFireFilePage();
+  } else if (window.location.href.startsWith("https://onedrive.live.com/")) {
+    // OneDriveの場合
+    oneDrive();
   }
 })();
 
@@ -51,7 +53,6 @@ function googleDriveFileView() {
   } else {
     console.error("ファイルIDを抽出できませんでした");
   }
-  windowClose();
 }
 
 // Googleドライブの大容量ファイルDL時の警告ページでの処理
@@ -62,10 +63,10 @@ function googleDriveWarnPage() {
   if (dlButton) {
     document.getElementById("uc-download-link").click();
     document.querySelector("#uc-text > p.uc-warning-caption").textContent = "自動で「このままダウンロード」をクリックしました";
+    windowClose();
   } else {
     console.error("ダウンロードボタンが見つかりませんでした");
   }
-  windowClose();
 }
 
 // Dropboxのファイル共有ページで自動でDL開始しない("dl=1"パラメータがセットされていない)場合の処理
@@ -88,8 +89,60 @@ function mediaFireFilePage() {
   const btn = document.querySelector("a#downloadButton, a.input.popsok");
   if (btn && btn.href.includes("mediafire.com")) {
     window.location.href = btn.href;
+    windowClose();
   }
-  windowClose();
+}
+
+// OneDriveでの処理
+function oneDrive() {
+  console.log("OneDriveのページです");
+  const TIMEOUT_MS = 15000; // 最大待ち時間（ミリ秒）
+
+  // 優先順に試すセレクタ（先頭が最優先）
+  const selList = [
+    '#downloadCommand', // ログイン時（優先）
+    '[data-automationid="download"]' // 非ログイン時
+  ];
+
+  function findFirstSelector(selList) {
+    for (const sel of selList) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function waitForAnySelector(selList) {
+    return new Promise((resolve) => {
+      const found = findFirstSelector(selList);
+      if (found) {
+        resolve(found);
+        return;
+      }
+
+      const obs = new MutationObserver(() => {
+        const found = findFirstSelector(selList);
+        if (found) {
+          obs.disconnect();
+          resolve(found);
+        }
+      });
+
+      obs.observe(document, { childList: true, subtree: true });
+
+      setTimeout(() => {
+        obs.disconnect();
+      }, TIMEOUT_MS);
+    });
+  }
+
+  (async () => {
+    const btn = await waitForAnySelector(selList);
+    if (btn) {
+      btn.click();
+      windowClose();
+    }
+  })();
 }
 
 // ページタイトルとfaviconを変更する関数
