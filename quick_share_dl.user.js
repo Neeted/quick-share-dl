@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.6
-// @description  Googleドライブ、Dropbox、OneDrive、MediaFireのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
+// @version      1.1.0
+// @description  Googleドライブ、Dropbox、OneDrive、MediaFire、MEGAのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
 // @match        https://drive.usercontent.google.com/download*
 // @match        https://www.dropbox.com/scl/fi/*
 // @match        https://www.mediafire.com/file/*
 // @match        https://onedrive.live.com/*
+// @match        https://mega.nz/file/*
 // @grant        window.close
 // @grant        GM_openInTab
 // @updateURL    https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
@@ -39,6 +40,9 @@ const AUTO_TAB_CLOSE = true;
   } else if (window.location.href.startsWith("https://onedrive.live.com/")) {
     // OneDriveの場合
     oneDrive();
+  } else if (window.location.href.startsWith("https://mega.nz/file/")) {
+    // MEGAの場合
+    megaFilePage();
   }
 })();
 
@@ -217,6 +221,51 @@ function changeFavicon(faviconUrl) {
   link.type = "image/png";
   link.href = faviconUrl;
   document.head.appendChild(link);
+}
+
+// MEGAファイルページでの処理
+// MutationObserverを使うとMEGAのダウンロードや復号化処理が不安定になる事象が起きたためsetIntervalでのDOMチェックにした
+// この場合でも最後の複合中に処理が進まなくなくなる事象が稀にありそうでスクリプトの影響なのか定かではないが注意が必要そう
+// バックグラウンドのままダウンロードを開始するのが良くないかもしれないので場合によってはタブにフォーカスしてからの処理開始を検討したほうが良さそう
+function megaFilePage() {
+  // ダウンロードボタン
+  const DOWNLOAD_SELECTOR = 'button.mega-button.positive.js-default-download.js-standard-download';
+  // 通常はhiddenだがキャッシュ済みデータがあると表示される「保存」ボタン
+  const SAVE_SELECTOR = 'button.mega-button.positive.save.js-save-download:not(.hidden)';
+  // 現状このdivにdownload-completeがあるかどうかを見ることでダウンロードの完了とキャッシュ済みデータの保存の完了の双方を検知できる
+  const COMPLETE_SELECTOR = 'div.download-content.download.download-page.download-complete';
+
+  let clicked = false;
+
+  function checkOnce() {
+    // 未クリックの場合「ダウンロード」か「保存」ボタンのクリックを試みる
+    if (!clicked) {
+      const dl = document.querySelector(DOWNLOAD_SELECTOR);
+      const save = document.querySelector(SAVE_SELECTOR);
+      if (dl) {
+        dl.click();
+        clicked = true;
+      } else if (save) {
+        save.click();
+        clicked = true;
+      }
+    }
+
+    // クリック済みの場合完了状態か確かめる
+    if (clicked) {
+      const comp = document.querySelector(COMPLETE_SELECTOR);
+      if (comp) {
+        clearInterval(poller);
+        // 念のため少し遅延してクローズ
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      }
+    }
+  }
+
+  checkOnce(); // 初回即時チェック
+  const poller = setInterval(checkOnce, 1000); // 1秒ごとにチェック
 }
 
 // タイトルやfaviconを処理が完了したものを示すものに変更し、一定時間後にウィンドウを閉じる関数
