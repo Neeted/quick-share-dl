@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.0.5
+// @version      1.0.6
 // @description  Googleドライブ、Dropbox、OneDrive、MediaFireのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
@@ -156,8 +156,9 @@ function oneDrive() {
 
   // 優先順に試すセレクタ（先頭が最優先）
   const selList = [
-    '#downloadCommand', // ログイン時（優先）
-    '[data-automationid="download"]' // 非ログイン時
+    '#downloadCommand', // ログイン時、画面左上のボタン(非ログイン時と違い幅が狭くても表示される)
+    '[data-automationid="download"]', // 非ログイン時、画面左上のボタン(ブラウザ幅が狭いと表示されない)
+    'button.od-Button.od-ButtonBarCommand.od-Button--primary' // 非ログイン時、画面中央のボタン(幅にかかわらず表示される)
   ];
 
   // selListの中から最初に見つかった要素を返す関数
