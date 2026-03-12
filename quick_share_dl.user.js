@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QuickShareDL
 // @namespace    https://github.com/Neeted
-// @version      1.1.0
+// @version      1.1.1
 // @description  Googleドライブ、Dropbox、OneDrive、MediaFire、MEGAのファイル共有ページで自動的にダウンロードを開始しタブを自動で閉じます
 // @author       ﾏﾝﾊｯﾀﾝｶﾞｯﾌｪ
 // @match        https://drive.google.com/file/d/*
@@ -15,6 +15,8 @@
 // @updateURL    https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // @downloadURL  https://neeted.github.io/quick-share-dl/quick_share_dl.user.js
 // ==/UserScript==
+
+// v1.1.1 MEGAのページ構造変更に対応
 
 // DL処理開始後にウィンドウ閉じるまでの時間(ミリ秒)
 // スクリプトからDLが開始できているか知ることはできないのでデフォルトでは10秒と長めに設定してある
@@ -228,12 +230,14 @@ function changeFavicon(faviconUrl) {
 // この場合でも最後の複合中に処理が進まなくなくなる事象が稀にありそうでスクリプトの影響なのか定かではないが注意が必要そう
 // バックグラウンドのままダウンロードを開始するのが良くないかもしれないので場合によってはタブにフォーカスしてからの処理開始を検討したほうが良さそう
 function megaFilePage() {
+  // 2026/03/13 ページの構造が最近変わったことに気が付いたのでセレクターを変更
+  // ボタンではなく中のアイコンをクリックしたり、完了の検知方法を変えた。キャッシュ済みデータ用の保存ボタンはどうなったか不明。
   // ダウンロードボタン
-  const DOWNLOAD_SELECTOR = 'button.mega-button.positive.js-default-download.js-standard-download';
+  const DOWNLOAD_SELECTOR = 'i.icon-arrow-down-circle-thin-outline';
   // 通常はhiddenだがキャッシュ済みデータがあると表示される「保存」ボタン
-  const SAVE_SELECTOR = 'button.mega-button.positive.save.js-save-download:not(.hidden)';
-  // 現状このdivにdownload-completeがあるかどうかを見ることでダウンロードの完了とキャッシュ済みデータの保存の完了の双方を検知できる
-  const COMPLETE_SELECTOR = 'div.download-content.download.download-page.download-complete';
+  // const SAVE_SELECTOR = 'button.mega-button.positive.save.js-save-download:not(.hidden)';
+  // ダウンロード完了時に出てくる要素
+  const COMPLETE_SELECTOR = 'div.status.complete';
 
   let clicked = false;
 
@@ -241,12 +245,9 @@ function megaFilePage() {
     // 未クリックの場合「ダウンロード」か「保存」ボタンのクリックを試みる
     if (!clicked) {
       const dl = document.querySelector(DOWNLOAD_SELECTOR);
-      const save = document.querySelector(SAVE_SELECTOR);
+      //const save = document.querySelector(SAVE_SELECTOR);
       if (dl) {
         dl.click();
-        clicked = true;
-      } else if (save) {
-        save.click();
         clicked = true;
       }
     }
